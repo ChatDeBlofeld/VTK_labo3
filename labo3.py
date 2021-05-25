@@ -5,7 +5,6 @@ import vtk
 bone_iso_value = 72
 skin_iso_value = 50
 
-(0.0, 0.5, 0.0, 0.5, 0.0, 1.0)
 # (xmin, ymin, xmax, ymax)
 viewport11 = [0.0, 0.5, 0.5, 1.0]
 viewport12 = [0.5, 0.5, 1.0, 1.0]
@@ -15,6 +14,7 @@ viewport22 = [0.5, 0.0, 1.0, 0.5]
 colors = vtk.vtkNamedColors()
 
 skinColor = [0.81,0.63,0.62]
+boneColor = colors.GetColor3d('Ivory')
 
 # Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
@@ -24,10 +24,12 @@ reader.Update()
 boneContourFilter = vtk.vtkContourFilter()
 boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
+boneContourFilter.Update()
 
 skinContourFilter = vtk.vtkContourFilter()
-skinContourFilter.SetInputData(reader.GetOutput())
+skinContourFilter.SetInputConnection(reader.GetOutputPort())
 skinContourFilter.SetValue(0, skin_iso_value)
+skinContourFilter.Update()
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
@@ -73,7 +75,7 @@ def upper_left(viewport):
     # Create the bone actor
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+    boneActor.GetProperty().SetDiffuseColor(boneColor)
 
     # Create the plane to cut the skin
     plane = vtk.vtkPlane()
@@ -85,6 +87,7 @@ def upper_left(viewport):
     cutter.SetInputData(skinMapper.GetInput())
     cutter.SetCutFunction(plane)
     cutter.GenerateValues(25, 0, 200)
+    print(skinMapper.GetInput().GetNumberOfPoints())
 
     # Strip the output of the cutter
     stripper = vtk.vtkStripper()
@@ -110,7 +113,7 @@ def upper_left(viewport):
 def upper_right(viewport):
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
+    boneActor.GetProperty().SetColor(boneColor)
 
 
     skinActor = vtk.vtkActor()
@@ -126,7 +129,7 @@ def lower_left(viewport):
     # Create the bone actor
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
+    boneActor.GetProperty().SetColor(boneColor)
 
     # Create the skin actor
     skinActor = vtk.vtkActor()
