@@ -22,17 +22,14 @@ boneColor = colors.GetColor3d('Ivory')
 # Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
 reader.SetFileName("vw_knee.slc")
-# reader.Update()
 
 boneContourFilter = vtk.vtkContourFilter()
 boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
-boneContourFilter.Update()
 
 skinContourFilter = vtk.vtkContourFilter()
 skinContourFilter.SetInputConnection(reader.GetOutputPort())
 skinContourFilter.SetValue(0, skin_iso_value)
-skinContourFilter.Update()
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
@@ -90,7 +87,6 @@ def upper_left(viewport):
     cutter.SetInputData(skinMapper.GetInput())
     cutter.SetCutFunction(plane)
     cutter.GenerateValues(25, 0, 200)
-    print(skinMapper.GetInput().GetNumberOfPoints())
 
     # Strip the output of the cutter
     stripper = vtk.vtkStripper()
@@ -117,7 +113,6 @@ def upper_right(viewport):
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
     boneActor.GetProperty().SetColor(boneColor)
-
 
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
@@ -186,14 +181,17 @@ def lower_right(viewport):
         writer.SetInputData(distanceFilter.GetOutput())
         writer.Write()
 
-        distanceMapper.SetInputConnection(distanceFilter.GetOutputPort())
+    ctf = vtk.vtkColorTransferFunction()
+    ctf.AddRGBPoint(0, 0.514, 0.49, 1)
+    ctf.AddRGBPoint(1, 0.157, 0.325, 0.141)
+    ctf.AddRGBPoint(20, 0.392, 0.725, 0.357)
+    ctf.AddRGBPoint(40, 0.898, 0.784, 0.537)
+    ctf.AddRGBPoint(60, 1, 1, 1)
 
-    distanceMapper.SetLookupTable(vtk.vtkLookupTable())
-    distanceMapper.UseLookupTableScalarRangeOn()
+    distanceMapper.SetLookupTable(ctf)
 
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(distanceMapper)
-    # boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
     return create_renderer(viewport, [0.82,0.82,0.82], boneActor)
   
 ren11 = upper_left(viewport11)
