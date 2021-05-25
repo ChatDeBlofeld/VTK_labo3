@@ -3,7 +3,8 @@
 import vtk
 
 
-iso_value = 72
+bone_iso_value = 72
+skin_iso_value = 50
 
 colors = vtk.vtkNamedColors()
 
@@ -16,28 +17,43 @@ reader.Update()
 mapper = vtk.vtkPolyDataMapper()
 mapper.SetInputConnection(reader.GetOutputPort())
 
+
+boneContourFilter = vtk.vtkContourFilter()
+boneContourFilter.SetInputConnection(reader.GetOutputPort())
+boneContourFilter.SetValue(0, bone_iso_value)
 # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
-contourFilter = vtk.vtkContourFilter()
-contourFilter.SetInputConnection(reader.GetOutputPort())
+skinContourFilter = vtk.vtkContourFilter()
+skinContourFilter.SetInputConnection(reader.GetOutputPort())
 # Change the range(2nd and 3rd Paramater) based on your
 # requirement. recomended value for 1st parameter is above 1
 # contourFilter.GenerateValues(5, 80.0, 100.0)
-contourFilter.SetValue(0, iso_value)
+skinContourFilter.SetValue(0, skin_iso_value)
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
 outliner.Update()
 
-mapper = vtk.vtkPolyDataMapper()
-mapper.SetInputConnection(contourFilter.GetOutputPort())
-mapper.SetScalarVisibility(0)
+boneMapper = vtk.vtkPolyDataMapper()
+boneMapper.SetInputConnection(boneContourFilter.GetOutputPort())
+boneMapper.SetScalarVisibility(0)
 
-actor = vtk.vtkActor()
-actor.SetMapper(mapper)
-actor.GetProperty().SetDiffuse(0.8)
-actor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-actor.GetProperty().SetSpecular(0.8)
-actor.GetProperty().SetSpecularPower(120.0)
+skinMapper = vtk.vtkPolyDataMapper()
+skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
+skinMapper.SetScalarVisibility(0)
+
+boneActor = vtk.vtkActor()
+boneActor.SetMapper(boneMapper)
+boneActor.GetProperty().SetDiffuse(0.8)
+boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+boneActor.GetProperty().SetSpecular(0.8)
+boneActor.GetProperty().SetSpecularPower(120.0)
+
+skinActor = vtk.vtkActor()
+skinActor.SetMapper(skinMapper)
+skinActor.GetProperty().SetDiffuse(0.8)
+skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+skinActor.GetProperty().SetSpecular(0.8)
+skinActor.GetProperty().SetSpecularPower(120.0)
 
 # Create a rendering window and renderer.
 renderer = vtk.vtkRenderer()
@@ -50,7 +66,8 @@ renderWindowInteractor = vtk.vtkRenderWindowInteractor()
 renderWindowInteractor.SetRenderWindow(renderWindow)
 
 # Assign actor to the renderer.
-renderer.AddActor(actor)
+renderer.AddActor(boneActor)
+renderer.AddActor(skinActor)
 renderer.SetBackground(colors.GetColor3d('SlateGray'))
 
 # Pick a good view
@@ -62,7 +79,6 @@ cam1.Azimuth(-90.0)
 renderer.ResetCamera()
 renderer.ResetCameraClippingRange()
 
-renderWindow.SetWindowName('ReadSLC')
 renderWindow.SetSize(640, 512)
 renderWindow.Render()
 
