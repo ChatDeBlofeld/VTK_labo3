@@ -41,18 +41,29 @@ skinMapper = vtk.vtkPolyDataMapper()
 skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
 skinMapper.SetScalarVisibility(0)
 
+boxActor = vtk.vtkActor()
+boxActor.SetMapper(boxMapper)
 
-def create_renderer(viewport, *actors):
+def create_renderer(viewport, bg_color = colors.GetColor3d('SlateGray'), *actors):
     renderer = vtk.vtkRenderer()
     for actor in actors:
         renderer.AddActor(actor)
-    renderer.SetBackground(colors.GetColor3d('SlateGray'))
+    renderer.AddActor(actor)
+    renderer.SetBackground(*bg_color)
     renderer.SetViewport(viewport)
     return renderer
 
 def upper_left(viewport):
     pass
 
+def upper_right(viewport):
+    pass
+
+def lower_left(viewport):
+    pass
+
+def lower_right(viewport):
+    pass
 
 def kneePipeline(viewport, test):
     boneActor = vtk.vtkActor()
@@ -62,9 +73,6 @@ def kneePipeline(viewport, test):
     boneActor.GetProperty().SetSpecular(test)
     boneActor.GetProperty().SetSpecularPower(120.0)
 
-    boxActor = vtk.vtkActor()
-    boxActor.SetMapper(boxMapper)
-
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinMapper)
     skinActor.GetProperty().SetDiffuse(test)
@@ -73,7 +81,7 @@ def kneePipeline(viewport, test):
     skinActor.GetProperty().SetSpecularPower(120.0)
 
     # Create a rendering window and renderer.
-    return create_renderer(viewport, boneActor, skinActor, boxActor)
+    return create_renderer(viewport, colors.GetColor3d('SlateGray'), boneActor, skinActor, boxActor)
     
 
 ren11 = kneePipeline(viewport11,0.1)
@@ -107,7 +115,7 @@ ren12.SetActiveCamera(cam1)
 ren21.SetActiveCamera(cam1)
 ren22.SetActiveCamera(cam1)
 
-renderWindow.SetSize(640, 512)
+renderWindow.SetSize(800, 800)
 renderWindow.Render()
 
 # Enable user interface interactor.
