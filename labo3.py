@@ -8,30 +8,26 @@ skin_iso_value = 50
 
 colors = vtk.vtkNamedColors()
 
-# vtkSLCReader to read.
+# Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
 reader.SetFileName("vw_knee.slc")
 reader.Update()
 
-# Create a mapper.
-mapper = vtk.vtkPolyDataMapper()
-mapper.SetInputConnection(reader.GetOutputPort())
-
-
 boneContourFilter = vtk.vtkContourFilter()
 boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
-# Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
+
 skinContourFilter = vtk.vtkContourFilter()
 skinContourFilter.SetInputConnection(reader.GetOutputPort())
-# Change the range(2nd and 3rd Paramater) based on your
-# requirement. recomended value for 1st parameter is above 1
-# contourFilter.GenerateValues(5, 80.0, 100.0)
 skinContourFilter.SetValue(0, skin_iso_value)
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
 outliner.Update()
+
+boxMapper = vtk.vtkPolyDataMapper()
+boxMapper.SetInputConnection(outliner.GetOutputPort())
+boxMapper.SetScalarVisibility(0)
 
 boneMapper = vtk.vtkPolyDataMapper()
 boneMapper.SetInputConnection(boneContourFilter.GetOutputPort())
@@ -47,6 +43,9 @@ boneActor.GetProperty().SetDiffuse(0.8)
 boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
 boneActor.GetProperty().SetSpecular(0.8)
 boneActor.GetProperty().SetSpecularPower(120.0)
+
+boxActor = vtk.vtkActor()
+boxActor.SetMapper(boxMapper)
 
 skinActor = vtk.vtkActor()
 skinActor.SetMapper(skinMapper)
@@ -68,6 +67,7 @@ renderWindowInteractor.SetRenderWindow(renderWindow)
 # Assign actor to the renderer.
 renderer.AddActor(boneActor)
 renderer.AddActor(skinActor)
+renderer.AddActor(boxActor)
 renderer.SetBackground(colors.GetColor3d('SlateGray'))
 
 # Pick a good view
@@ -86,45 +86,3 @@ renderWindow.Render()
 renderWindowInteractor.Initialize()
 renderWindow.Render()
 renderWindowInteractor.Start()
-
-
-
-
-""" import vtk as vtk
-
-
-
-renderer = vtk.vtkRenderer()
-#renderer.GetActiveCamera().SetFocalPoint(*FOCAL_POINT)
-#renderer.GetActiveCamera().SetPosition(*CAMERA_POSITION)
-renderer.GetActiveCamera().SetClippingRange(0.1, 1_000_000) 
-
-renWin = vtk.vtkRenderWindow()
-renWin.AddRenderer(renderer)
-renWin.SetSize(800, 800)
-
-
-reader = vtk.vtkSLCReader()
-reader.SetFileName("vw_knee.slc")
-
-mc = vtk.vtkMarchingCubes()
-mc.SetInput(reader.GetOutput())
-
-mapper = vtk.vtkPolyDataMapper()
-mapper.SetInput(mc.GetOutput())
-mapper.ScalarVisibilityOff()
-
-actor = vtk.vtkActor()
-actor.SetMapper(mapper)
-
-renderer.AddActor(actor)
-
-iren = vtk.vtkRenderWindowInteractor()
-iren.SetRenderWindow(renWin)
-
-style = vtk.vtkInteractorStyleTrackballCamera()
-iren.SetInteractorStyle(style)
-
-iren.Initialize()
-iren.Render()
-iren.Start() """
