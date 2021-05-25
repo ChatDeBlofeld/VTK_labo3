@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
 import vtk
+import os.path
 
 bone_iso_value = 72
 skin_iso_value = 50
+
+bone_distances_path = "bone_distances.vtk"
 
 viewport11 = [0.0, 0.5, 0.5, 1.0]
 viewport12 = [0.5, 0.5, 1.0, 1.0]
@@ -15,19 +18,18 @@ colors = vtk.vtkNamedColors()
 # Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
 reader.SetFileName("vw_knee.slc")
-reader.Update()
+# reader.Update()
 
 boneContourFilter = vtk.vtkContourFilter()
 boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
 
 skinContourFilter = vtk.vtkContourFilter()
-skinContourFilter.SetInputData(reader.GetOutput())
+skinContourFilter.SetInputConnection(reader.GetOutputPort())
 skinContourFilter.SetValue(0, skin_iso_value)
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
-outliner.Update()
 
 boxMapper = vtk.vtkPolyDataMapper()
 boxMapper.SetInputConnection(outliner.GetOutputPort())
@@ -55,6 +57,7 @@ skinClipMapper.SetScalarVisibility(0)
 
 boxActor = vtk.vtkActor()
 boxActor.SetMapper(boxMapper)
+boxActor.GetProperty().SetColor(colors.GetColor3d('Black'))
 
 def create_renderer(viewport, bg_color, *actors):
     renderer = vtk.vtkRenderer()
@@ -123,7 +126,39 @@ def lower_left(viewport):
     pass
 
 def lower_right(viewport):
-    pass
+    distanceMapper = vtk.vtkPolyDataMapper()
+
+    if os.path.isfile(bone_distances_path):
+        polydata = vtk.vtkPolyData()
+
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(bone_distances_path)
+        reader.SetOutput(polydata)
+        reader.ReadAllScalarsOn()
+
+        distanceMapper.SetInputConnection(reader.GetOutputPort())
+    else:
+        distanceFilter = vtk.vtkDistancePolyDataFilter()
+        distanceFilter.SignedDistanceOff()
+        distanceFilter.SetInputConnection(0, boneContourFilter.GetOutputPort())
+        distanceFilter.SetInputConnection(1, skinContourFilter.GetOutputPort())
+        distanceFilter.Update()
+
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(bone_distances_path)
+        writer.SetFileTypeToBinary()
+        writer.SetInputData(distanceFilter.GetOutput())
+        writer.Write()
+
+        distanceMapper.SetInputConnection(distanceFilter.GetOutputPort())
+
+    distanceMapper.SetLookupTable(vtk.vtkLookupTable())
+    distanceMapper.UseLookupTableScalarRangeOn()
+
+    boneActor = vtk.vtkActor()
+    boneActor.SetMapper(distanceMapper)
+    # boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
+    return create_renderer(viewport, [0.82,0.82,0.82], boneActor)
 
 def kneePipeline(viewport, test):
     boneActor = vtk.vtkActor()
@@ -147,7 +182,7 @@ def kneePipeline(viewport, test):
 ren11 = upper_left(viewport11)
 ren12 = upper_right(viewport12)
 ren21 = kneePipeline(viewport21,0.55)
-ren22 = kneePipeline(viewport22,0.8)
+ren22 = lower_right(viewport22)
 
 # Pour le dernier, utiliser vtkImplicitPolyDataDistance (https://youtu.be/gBdo2OrVAyk?t=362)
 
@@ -156,7 +191,7 @@ renderWindow.AddRenderer(ren11)
 renderWindow.AddRenderer(ren12)
 renderWindow.AddRenderer(ren21)
 renderWindow.AddRenderer(ren22)
-renderWindow.SetSize(500, 500)
+renderWindow.SetSize(800, 800)
 
 # Create a renderwindowinteractor.
 renderWindowInteractor = vtk.vtkRenderWindowInteractor()
@@ -173,9 +208,6 @@ ren11.ResetCameraClippingRange()
 ren12.SetActiveCamera(cam1)
 ren21.SetActiveCamera(cam1)
 ren22.SetActiveCamera(cam1)
-
-renderWindow.SetSize(800, 800)
-renderWindow.Render()
 
 # Enable user interface interactor.
 renderWindowInteractor.Initialize()
