@@ -41,14 +41,27 @@ skinMapper = vtk.vtkPolyDataMapper()
 skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
 skinMapper.SetScalarVisibility(0)
 
+skinClipFunction = vtk.vtkSphere()
+skinClipFunction.SetRadius(30)
+skinClipFunction.SetCenter(100,25,35)
+
+skinClip = vtk.vtkClipPolyData()
+skinClip.SetClipFunction(skinClipFunction)
+skinClip.SetInputConnection(skinContourFilter.GetOutputPort())
+
+skinClipMapper = vtk.vtkPolyDataMapper()
+skinClipMapper.SetInputConnection(skinClip.GetOutputPort())
+skinClipMapper.SetScalarVisibility(0)
+
 boxActor = vtk.vtkActor()
 boxActor.SetMapper(boxMapper)
+print(boxActor.GetYRange())
 
 def create_renderer(viewport, bg_color, *actors):
     renderer = vtk.vtkRenderer()
     for actor in actors:
         renderer.AddActor(actor)
-    renderer.AddActor(actor)
+    renderer.AddActor(boxActor)
     renderer.SetBackground(*bg_color)
     renderer.SetViewport(viewport)
     return renderer
@@ -61,12 +74,15 @@ def upper_right(viewport):
     boneActor.SetMapper(boneMapper)
     boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
 
+
+    skinColor = [0.81,0.63,0.62]
     skinActor = vtk.vtkActor()
-    skinActor.SetMapper(skinMapper)
-    skinActor.GetProperty().SetDiffuse(0.8)
-    skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-    skinActor.GetProperty().SetSpecular(0.8)
-    skinActor.GetProperty().SetSpecularPower(120.0)
+    skinActor.SetMapper(skinClipMapper)
+    skinActor.GetProperty().SetColor(skinColor)
+    skinActor.GetProperty().SetOpacity(0.5)
+    skinActor.SetBackfaceProperty(skinActor.MakeProperty())
+    skinActor.GetBackfaceProperty().SetColor(skinColor)
+
     return create_renderer(viewport, [0.82,1.00,0.82], boneActor, skinActor)
 
 def lower_left(viewport):
@@ -91,7 +107,7 @@ def kneePipeline(viewport, test):
     skinActor.GetProperty().SetSpecularPower(120.0)
 
     # Create a rendering window and renderer.
-    return create_renderer(viewport, colors.GetColor3d('SlateGray'), boneActor, skinActor, boxActor)
+    return create_renderer(viewport, colors.GetColor3d('SlateGray'), boneActor, skinActor)
     
 
 ren11 = kneePipeline(viewport11,0.1)
