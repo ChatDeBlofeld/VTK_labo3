@@ -22,7 +22,7 @@ boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
 
 skinContourFilter = vtk.vtkContourFilter()
-skinContourFilter.SetInputConnection(reader.GetOutputPort())
+skinContourFilter.SetInputData(reader.GetOutput())
 skinContourFilter.SetValue(0, skin_iso_value)
 
 outliner = vtk.vtkOutlineFilter()
@@ -67,7 +67,42 @@ def create_renderer(viewport, bg_color, *actors):
     return renderer
 
 def upper_left(viewport):
-    pass
+    # Create the bone actor
+    boneActor = vtk.vtkActor()
+    boneActor.SetMapper(boneMapper)
+    boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+
+    # Create the plane to cut the skin
+    plane = vtk.vtkPlane()
+    plane.SetNormal(0, 0, 1)
+    plane.SetOrigin(0, 0, 0)
+
+    # Cut the skin with the plan
+    cutter = vtk.vtkCutter()
+    cutter.SetInputData(skinMapper.GetInput())
+    cutter.SetCutFunction(plane)
+    cutter.GenerateValues(25, 0, 200)
+
+    # Strip the output of the cutter
+    stripper = vtk.vtkStripper()
+    stripper.SetInputConnection(cutter.GetOutputPort())
+
+    # Pass the output of the stripper through a tube filter
+    tubeFilter = vtk.vtkTubeFilter()
+    tubeFilter.SetRadius(1)
+    tubeFilter.SetInputConnection(stripper.GetOutputPort())
+
+    # Create the lines mapper
+    linesMapper = vtk.vtkPolyDataMapper()
+    linesMapper.ScalarVisibilityOff()
+    linesMapper.SetInputConnection(tubeFilter.GetOutputPort())
+
+    # Create the lines actor
+    linesActor = vtk.vtkActor()
+    linesActor.SetMapper(linesMapper)
+    linesActor.GetProperty().SetColor([0.81,0.63,0.62])    
+
+    return create_renderer(viewport, [1.00,0.82,0.82], boneActor, linesActor)
 
 def upper_right(viewport):
     boneActor = vtk.vtkActor()
@@ -110,10 +145,12 @@ def kneePipeline(viewport, test):
     return create_renderer(viewport, colors.GetColor3d('SlateGray'), boneActor, skinActor)
     
 
-ren11 = kneePipeline(viewport11,0.1)
+ren11 = upper_left(viewport11)
 ren12 = upper_right(viewport12)
 ren21 = kneePipeline(viewport21,0.55)
 ren22 = kneePipeline(viewport22,0.8)
+
+# Pour le dernier, utiliser vtkImplicitPolyDataDistance (https://youtu.be/gBdo2OrVAyk?t=362)
 
 renderWindow = vtk.vtkRenderWindow()
 renderWindow.AddRenderer(ren11)
