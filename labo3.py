@@ -5,10 +5,10 @@ import vtk
 bone_iso_value = 72
 skin_iso_value = 50
 
-viewport11 = [0.0, 0.0, 0.5, 0.5]
-viewport12 = [0.0, 0.5, 0.5, 1.0]
-viewport21 = [0.5, 0.0, 1.0, 0.5]
-viewport22 = [0.5, 0.5, 1.0, 1.0]
+viewport11 = [0.0, 0.5, 0.5, 1.0]
+viewport12 = [0.5, 0.5, 1.0, 1.0]
+viewport21 = [0.0, 0.0, 0.5, 0.5]
+viewport22 = [0.5, 0.0, 1.0, 0.5]
 
 colors = vtk.vtkNamedColors()
 
@@ -44,7 +44,7 @@ skinMapper.SetScalarVisibility(0)
 boxActor = vtk.vtkActor()
 boxActor.SetMapper(boxMapper)
 
-def create_renderer(viewport, bg_color = colors.GetColor3d('SlateGray'), *actors):
+def create_renderer(viewport, bg_color, *actors):
     renderer = vtk.vtkRenderer()
     for actor in actors:
         renderer.AddActor(actor)
@@ -78,7 +78,17 @@ def upper_left(viewport):
     pass
 
 def upper_right(viewport):
-    pass
+    boneActor = vtk.vtkActor()
+    boneActor.SetMapper(boneMapper)
+    boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
+
+    skinActor = vtk.vtkActor()
+    skinActor.SetMapper(skinMapper)
+    skinActor.GetProperty().SetDiffuse(0.8)
+    skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+    skinActor.GetProperty().SetSpecular(0.8)
+    skinActor.GetProperty().SetSpecularPower(120.0)
+    return create_renderer(viewport, [0.82,1.00,0.82], boneActor, skinActor)
 
 def lower_left(viewport):
     pass
@@ -106,7 +116,7 @@ def kneePipeline(viewport, test):
     
 
 ren11 = kneePipeline(viewport11,0.1)
-ren12 = kneePipeline(viewport12,0.3)
+ren12 = upper_right(viewport12)
 ren21 = kneePipeline(viewport21,0.55)
 ren22 = kneePipeline(viewport22,0.8)
 
