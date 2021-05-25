@@ -123,30 +123,35 @@ def upper_right(viewport):
     return create_renderer(viewport, [0.82,1.00,0.82], boneActor, skinActor)
 
 def lower_left(viewport):
+    # Create the bone actor
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
     boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
 
+    # Create the skin actor
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
     skinActor.GetProperty().SetColor(skinColor)
 
+    # Create a sample function from the implicit function
     sampleFunction = vtk.vtkSampleFunction()
     sampleFunction.SetImplicitFunction(skinClipFunction)
-    sampleFunction.SetSampleDimensions(128, 128, 128)
-    sampleFunction.SetModelBounds(0.0, 0.5, 0.0, 0.5, 0.0, 1.0)
+    sampleFunction.SetModelBounds(0.0, 200, -30, 200, 0.0, 200)
 
+    # Pass the sample function through a contourFilter to create a polydata
     contourFilter = vtk.vtkContourFilter()
     contourFilter.SetInputConnection(sampleFunction.GetOutputPort())
 
+    # Create a mapper for the sphere actor
     sphereMapper = vtk.vtkPolyDataMapper()
     sphereMapper.SetInputConnection(contourFilter.GetOutputPort())
     sphereMapper.ScalarVisibilityOff()
 
+    # Create the sphere actor
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
-    sphereActor.GetProperty().SetColor(colors.GetColor3d('Green'))
-
+    sphereActor.GetProperty().SetColor(colors.GetColor3d('PaleGoldenrod'))
+    sphereActor.GetProperty().SetOpacity(0.3)
 
     return create_renderer(viewport, [0.82,0.82,1.00], boneActor, skinActor, sphereActor)
 
