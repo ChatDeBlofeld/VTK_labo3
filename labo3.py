@@ -18,37 +18,37 @@ reader = vtk.vtkSLCReader()
 reader.SetFileName("vw_knee.slc")
 reader.Update()
 
+boneContourFilter = vtk.vtkContourFilter()
+boneContourFilter.SetInputConnection(reader.GetOutputPort())
+boneContourFilter.SetValue(0, bone_iso_value)
 
-def kneePipeline(viewport):
-    boneContourFilter = vtk.vtkContourFilter()
-    boneContourFilter.SetInputConnection(reader.GetOutputPort())
-    boneContourFilter.SetValue(0, bone_iso_value)
+skinContourFilter = vtk.vtkContourFilter()
+skinContourFilter.SetInputConnection(reader.GetOutputPort())
+skinContourFilter.SetValue(0, skin_iso_value)
 
-    skinContourFilter = vtk.vtkContourFilter()
-    skinContourFilter.SetInputConnection(reader.GetOutputPort())
-    skinContourFilter.SetValue(0, skin_iso_value)
+outliner = vtk.vtkOutlineFilter()
+outliner.SetInputConnection(reader.GetOutputPort())
+outliner.Update()
 
-    outliner = vtk.vtkOutlineFilter()
-    outliner.SetInputConnection(reader.GetOutputPort())
-    outliner.Update()
+boxMapper = vtk.vtkPolyDataMapper()
+boxMapper.SetInputConnection(outliner.GetOutputPort())
+boxMapper.SetScalarVisibility(0)
 
-    boxMapper = vtk.vtkPolyDataMapper()
-    boxMapper.SetInputConnection(outliner.GetOutputPort())
-    boxMapper.SetScalarVisibility(0)
+boneMapper = vtk.vtkPolyDataMapper()
+boneMapper.SetInputConnection(boneContourFilter.GetOutputPort())
+boneMapper.SetScalarVisibility(0)
 
-    boneMapper = vtk.vtkPolyDataMapper()
-    boneMapper.SetInputConnection(boneContourFilter.GetOutputPort())
-    boneMapper.SetScalarVisibility(0)
+skinMapper = vtk.vtkPolyDataMapper()
+skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
+skinMapper.SetScalarVisibility(0)
 
-    skinMapper = vtk.vtkPolyDataMapper()
-    skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
-    skinMapper.SetScalarVisibility(0)
 
+def kneePipeline(viewport, test):
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetDiffuse(0.8)
+    boneActor.GetProperty().SetDiffuse(test)
     boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-    boneActor.GetProperty().SetSpecular(0.8)
+    boneActor.GetProperty().SetSpecular(test)
     boneActor.GetProperty().SetSpecularPower(120.0)
 
     boxActor = vtk.vtkActor()
@@ -56,9 +56,9 @@ def kneePipeline(viewport):
 
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinMapper)
-    skinActor.GetProperty().SetDiffuse(0.8)
+    skinActor.GetProperty().SetDiffuse(test)
     skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-    skinActor.GetProperty().SetSpecular(0.8)
+    skinActor.GetProperty().SetSpecular(test)
     skinActor.GetProperty().SetSpecularPower(120.0)
 
     # Create a rendering window and renderer.
@@ -70,10 +70,10 @@ def kneePipeline(viewport):
     renderer.SetViewport(viewport)
     return renderer
 
-ren11 = kneePipeline(viewport11)
-ren12 = kneePipeline(viewport12)
-ren21 = kneePipeline(viewport21)
-ren22 = kneePipeline(viewport22)
+ren11 = kneePipeline(viewport11,0.1)
+ren12 = kneePipeline(viewport12,0.3)
+ren21 = kneePipeline(viewport21,0.55)
+ren22 = kneePipeline(viewport22,0.8)
 
 renderWindow = vtk.vtkRenderWindow()
 renderWindow.AddRenderer(ren11)
