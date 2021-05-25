@@ -54,6 +54,27 @@ def create_renderer(viewport, bg_color = colors.GetColor3d('SlateGray'), *actors
     return renderer
 
 def upper_left(viewport):
+    planes = vtk.vtkPlanes()
+    
+
+
+    boneActor = vtk.vtkActor()
+    boneActor.SetMapper(boneMapper)
+    boneActor.GetProperty().SetDiffuse(test)
+    boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+    boneActor.GetProperty().SetSpecular(test)
+    boneActor.GetProperty().SetSpecularPower(120.0)
+
+    skinActor = vtk.vtkActor()
+    skinActor.SetMapper(skinMapper)
+    skinActor.GetProperty().SetDiffuse(test)
+    skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+    skinActor.GetProperty().SetSpecular(test)
+    skinActor.GetProperty().SetSpecularPower(120.0)
+
+
+    renderer = create_renderer(viewport, (1.00,0.82,0.82), ())
+    return renderer
     pass
 
 def upper_right(viewport):
