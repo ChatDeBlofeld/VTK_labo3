@@ -42,8 +42,8 @@ skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
 skinMapper.SetScalarVisibility(0)
 
 skinClipFunction = vtk.vtkSphere()
-skinClipFunction.SetRadius(30)
-skinClipFunction.SetCenter(100,25,35)
+skinClipFunction.SetRadius(45)
+skinClipFunction.SetCenter(70,30,110)
 
 skinClip = vtk.vtkClipPolyData()
 skinClip.SetClipFunction(skinClipFunction)
@@ -55,7 +55,6 @@ skinClipMapper.SetScalarVisibility(0)
 
 boxActor = vtk.vtkActor()
 boxActor.SetMapper(boxMapper)
-print(boxActor.GetYRange())
 
 def create_renderer(viewport, bg_color, *actors):
     renderer = vtk.vtkRenderer()
@@ -168,7 +167,6 @@ cam1 = ren11.GetActiveCamera()
 cam1.SetFocalPoint(0.0, 0.0, 0.0)
 cam1.SetPosition(0.0, -1.0, 0.0)
 cam1.SetViewUp(0.0, 0.0, -1.0)
-cam1.Azimuth(-90.0)
 ren11.ResetCamera()
 ren11.ResetCameraClippingRange()
 
