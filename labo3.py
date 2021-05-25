@@ -81,6 +81,8 @@ ren12 = kneePipeline(viewport12,0.3)
 ren21 = kneePipeline(viewport21,0.55)
 ren22 = kneePipeline(viewport22,0.8)
 
+# Pour le dernier, utiliser vtkImplicitPolyDataDistance (https://youtu.be/gBdo2OrVAyk?t=362)
+
 renderWindow = vtk.vtkRenderWindow()
 renderWindow.AddRenderer(ren11)
 renderWindow.AddRenderer(ren12)
