@@ -2,7 +2,6 @@
 
 import vtk
 
-
 bone_iso_value = 72
 skin_iso_value = 50
 
@@ -43,6 +42,18 @@ skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
 skinMapper.SetScalarVisibility(0)
 
 
+def create_renderer(viewport, *actors):
+    renderer = vtk.vtkRenderer()
+    for actor in actors:
+        renderer.AddActor(actor)
+    renderer.SetBackground(colors.GetColor3d('SlateGray'))
+    renderer.SetViewport(viewport)
+    return renderer
+
+def upper_left(viewport):
+    pass
+
+
 def kneePipeline(viewport, test):
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
@@ -62,13 +73,8 @@ def kneePipeline(viewport, test):
     skinActor.GetProperty().SetSpecularPower(120.0)
 
     # Create a rendering window and renderer.
-    renderer = vtk.vtkRenderer()
-    renderer.AddActor(boneActor)
-    renderer.AddActor(skinActor)
-    renderer.AddActor(boxActor)
-    renderer.SetBackground(colors.GetColor3d('SlateGray'))
-    renderer.SetViewport(viewport)
-    return renderer
+    return create_renderer(viewport, boneActor, skinActor, boxActor)
+    
 
 ren11 = kneePipeline(viewport11,0.1)
 ren12 = kneePipeline(viewport12,0.3)
