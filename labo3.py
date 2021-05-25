@@ -8,12 +8,16 @@ skin_iso_value = 50
 
 bone_distances_path = "bone_distances.vtk"
 
+# (xmin, ymin, xmax, ymax)
 viewport11 = [0.0, 0.5, 0.5, 1.0]
 viewport12 = [0.5, 0.5, 1.0, 1.0]
 viewport21 = [0.0, 0.0, 0.5, 0.5]
 viewport22 = [0.5, 0.0, 1.0, 0.5]
 
 colors = vtk.vtkNamedColors()
+
+skinColor = [0.81,0.63,0.62]
+boneColor = colors.GetColor3d('Ivory')
 
 # Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
@@ -23,10 +27,12 @@ reader.SetFileName("vw_knee.slc")
 boneContourFilter = vtk.vtkContourFilter()
 boneContourFilter.SetInputConnection(reader.GetOutputPort())
 boneContourFilter.SetValue(0, bone_iso_value)
+boneContourFilter.Update()
 
 skinContourFilter = vtk.vtkContourFilter()
 skinContourFilter.SetInputConnection(reader.GetOutputPort())
 skinContourFilter.SetValue(0, skin_iso_value)
+skinContourFilter.Update()
 
 outliner = vtk.vtkOutlineFilter()
 outliner.SetInputConnection(reader.GetOutputPort())
@@ -72,7 +78,7 @@ def upper_left(viewport):
     # Create the bone actor
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
+    boneActor.GetProperty().SetDiffuseColor(boneColor)
 
     # Create the plane to cut the skin
     plane = vtk.vtkPlane()
@@ -84,6 +90,7 @@ def upper_left(viewport):
     cutter.SetInputData(skinMapper.GetInput())
     cutter.SetCutFunction(plane)
     cutter.GenerateValues(25, 0, 200)
+    print(skinMapper.GetInput().GetNumberOfPoints())
 
     # Strip the output of the cutter
     stripper = vtk.vtkStripper()
@@ -109,10 +116,9 @@ def upper_left(viewport):
 def upper_right(viewport):
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
+    boneActor.GetProperty().SetColor(boneColor)
 
 
-    skinColor = [0.81,0.63,0.62]
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
     skinActor.GetProperty().SetColor(skinColor)
@@ -123,7 +129,37 @@ def upper_right(viewport):
     return create_renderer(viewport, [0.82,1.00,0.82], boneActor, skinActor)
 
 def lower_left(viewport):
-    pass
+    # Create the bone actor
+    boneActor = vtk.vtkActor()
+    boneActor.SetMapper(boneMapper)
+    boneActor.GetProperty().SetColor(boneColor)
+
+    # Create the skin actor
+    skinActor = vtk.vtkActor()
+    skinActor.SetMapper(skinClipMapper)
+    skinActor.GetProperty().SetColor(skinColor)
+
+    # Create a sample function from the implicit function
+    sampleFunction = vtk.vtkSampleFunction()
+    sampleFunction.SetImplicitFunction(skinClipFunction)
+    sampleFunction.SetModelBounds(0.0, 200, -30, 200, 0.0, 200)
+
+    # Pass the sample function through a contourFilter to create a polydata
+    contourFilter = vtk.vtkContourFilter()
+    contourFilter.SetInputConnection(sampleFunction.GetOutputPort())
+
+    # Create a mapper for the sphere actor
+    sphereMapper = vtk.vtkPolyDataMapper()
+    sphereMapper.SetInputConnection(contourFilter.GetOutputPort())
+    sphereMapper.ScalarVisibilityOff()
+
+    # Create the sphere actor
+    sphereActor = vtk.vtkActor()
+    sphereActor.SetMapper(sphereMapper)
+    sphereActor.GetProperty().SetColor(colors.GetColor3d('PaleGoldenrod'))
+    sphereActor.GetProperty().SetOpacity(0.3)
+
+    return create_renderer(viewport, [0.82,0.82,1.00], boneActor, skinActor, sphereActor)
 
 def lower_right(viewport):
     distanceMapper = vtk.vtkPolyDataMapper()
@@ -159,30 +195,11 @@ def lower_right(viewport):
     boneActor.SetMapper(distanceMapper)
     # boneActor.GetProperty().SetColor(colors.GetColor3d('White'))
     return create_renderer(viewport, [0.82,0.82,0.82], boneActor)
-
-def kneePipeline(viewport, test):
-    boneActor = vtk.vtkActor()
-    boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetDiffuse(test)
-    boneActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-    boneActor.GetProperty().SetSpecular(test)
-    boneActor.GetProperty().SetSpecularPower(120.0)
-
-    skinActor = vtk.vtkActor()
-    skinActor.SetMapper(skinMapper)
-    skinActor.GetProperty().SetDiffuse(test)
-    skinActor.GetProperty().SetDiffuseColor(colors.GetColor3d('Ivory'))
-    skinActor.GetProperty().SetSpecular(test)
-    skinActor.GetProperty().SetSpecularPower(120.0)
-
-    # Create a rendering window and renderer.
-    return create_renderer(viewport, colors.GetColor3d('SlateGray'), boneActor, skinActor)
-    
-
+  
 ren11 = upper_left(viewport11)
 ren12 = upper_right(viewport12)
-ren21 = kneePipeline(viewport21,0.55)
 ren22 = lower_right(viewport22)
+ren21 = lower_left(viewport21)
 
 # Pour le dernier, utiliser vtkImplicitPolyDataDistance (https://youtu.be/gBdo2OrVAyk?t=362)
 
