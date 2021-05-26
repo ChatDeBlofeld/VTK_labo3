@@ -140,11 +140,11 @@ skinContourFilter.SetValue(0, SKIN_ISO_VALUE)
 
 boneOutputPort = 0
 if os.path.isfile(BONE_DISTANCES_PATH):
-    polydata = vtk.vtkUnstructuredGrid()
+    grid = vtk.vtkUnstructuredGrid()
 
     boneReader = vtk.vtkUnstructuredGridReader()
     boneReader.SetFileName(BONE_DISTANCES_PATH)
-    boneReader.SetOutput(polydata)
+    boneReader.SetOutput(grid)
     boneReader.ReadAllScalarsOn()
 
     boneOutputPort = boneReader.GetOutputPort()    
