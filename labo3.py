@@ -169,7 +169,7 @@ else:
 
     # Remove ugly pipe
     range = vtk.vtkIntArray()
-    range.InsertNextTuple1(2)
+    range.InsertNextTuple1(2.5)
     range.InsertNextTuple1(60)
 
     filterCells = vtk.vtkSelectionNode()
