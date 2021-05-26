@@ -117,15 +117,8 @@ def lower_left(viewport):
     return create_renderer(viewport, LOWER_LEFT_BG_COLOR, boneActor, skinActor, sphereActor)
 
 def lower_right(viewport):
-    # Create rainbow lookup table
-    lut = vtk.vtkLookupTable()
-    lut.SetNumberOfColors(256)
-    lut.SetHueRange(0.0, 0.667)
-    lut.Build()
-
     distanceMapper = vtk.vtkDataSetMapper()
     distanceMapper.SetInputConnection(boneOutputPort)
-    distanceMapper.SetLookupTable(lut)
     # Comment connaître la range ? Possible d'update mais performance ?
     # + warning thread-safe je sais pas quoi
     distanceMapper.SetScalarRange(0,50)
