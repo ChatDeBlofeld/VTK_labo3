@@ -3,64 +3,32 @@
 import vtk
 import os.path
 
-bone_iso_value = 72
-skin_iso_value = 50
+# Constants
 
-bone_distances_path = "bone_distances.vtk"
+BONE_ISO_VALUE = 72
+SKIN_ISO_VALUE = 50
+
+BONE_DISTANCES_PATH = "bone_distances.vtk"
 
 # (xmin, ymin, xmax, ymax)
-viewport11 = [0.0, 0.5, 0.5, 1.0]
-viewport12 = [0.5, 0.5, 1.0, 1.0]
-viewport21 = [0.0, 0.0, 0.5, 0.5]
-viewport22 = [0.5, 0.0, 1.0, 0.5]
+VIEWPORT11 = [0.0, 0.5, 0.5, 1.0]
+VIEWPORT12 = [0.5, 0.5, 1.0, 1.0]
+VIEWPORT21 = [0.0, 0.0, 0.5, 0.5]
+VIEWPORT22 = [0.5, 0.0, 1.0, 0.5]
 
-colors = vtk.vtkNamedColors()
+UPPER_LEFT_BG_COLOR = [1.00,0.82,0.82]
+UPPER_RIGHT_BG_COLOR = [0.82,1.00,0.82]
+LOWER_LEFT_BG_COLOR = [0.82,0.82,1.00]
+LOWER_RIGHT_BG_COLOR = [0.82,0.82,0.82]
 
-skinColor = [0.81,0.63,0.62]
-boneColor = colors.GetColor3d('Ivory')
+COLORS = vtk.vtkNamedColors()
 
-# Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
-reader = vtk.vtkSLCReader()
-reader.SetFileName("vw_knee.slc")
+SKIN_COLOR = [0.81,0.63,0.62]
+BONE_COLOR = COLORS.GetColor3d('Ivory')
 
-boneContourFilter = vtk.vtkContourFilter()
-boneContourFilter.SetInputConnection(reader.GetOutputPort())
-boneContourFilter.SetValue(0, bone_iso_value)
 
-skinContourFilter = vtk.vtkContourFilter()
-skinContourFilter.SetInputConnection(reader.GetOutputPort())
-skinContourFilter.SetValue(0, skin_iso_value)
 
-outliner = vtk.vtkOutlineFilter()
-outliner.SetInputConnection(reader.GetOutputPort())
-
-boxMapper = vtk.vtkPolyDataMapper()
-boxMapper.SetInputConnection(outliner.GetOutputPort())
-boxMapper.SetScalarVisibility(0)
-
-boneMapper = vtk.vtkPolyDataMapper()
-boneMapper.SetInputConnection(boneContourFilter.GetOutputPort())
-boneMapper.SetScalarVisibility(0)
-
-skinMapper = vtk.vtkPolyDataMapper()
-skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
-skinMapper.SetScalarVisibility(0)
-
-skinClipFunction = vtk.vtkSphere()
-skinClipFunction.SetRadius(45)
-skinClipFunction.SetCenter(70,30,110)
-
-skinClip = vtk.vtkClipPolyData()
-skinClip.SetClipFunction(skinClipFunction)
-skinClip.SetInputConnection(skinContourFilter.GetOutputPort())
-
-skinClipMapper = vtk.vtkPolyDataMapper()
-skinClipMapper.SetInputConnection(skinClip.GetOutputPort())
-skinClipMapper.SetScalarVisibility(0)
-
-boxActor = vtk.vtkActor()
-boxActor.SetMapper(boxMapper)
-boxActor.GetProperty().SetColor(colors.GetColor3d('Black'))
+# Set of functions to create the specific renderers
 
 def create_renderer(viewport, bg_color, *actors):
     renderer = vtk.vtkRenderer()
@@ -72,10 +40,10 @@ def create_renderer(viewport, bg_color, *actors):
     return renderer
 
 def upper_left(viewport):
-    # Create the bone actor
-    boneActor = vtk.vtkActor()
-    boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetDiffuseColor(boneColor)
+    # Create the mapper
+    skinMapper = vtk.vtkPolyDataMapper()
+    skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
+    skinMapper.SetScalarVisibility(0)
 
     # Create the plane to cut the skin
     plane = vtk.vtkPlane()
@@ -105,34 +73,26 @@ def upper_left(viewport):
     # Create the lines actor
     linesActor = vtk.vtkActor()
     linesActor.SetMapper(linesMapper)
-    linesActor.GetProperty().SetColor([0.81,0.63,0.62])    
+    linesActor.GetProperty().SetColor(SKIN_COLOR)    
 
-    return create_renderer(viewport, [1.00,0.82,0.82], boneActor, linesActor)
+    return create_renderer(viewport, UPPER_LEFT_BG_COLOR, boneActor, linesActor)
 
 def upper_right(viewport):
-    boneActor = vtk.vtkActor()
-    boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetColor(boneColor)
-
+    # Create a skin actor with custom properties (transparency, backfaceCullingOff)
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
-    skinActor.GetProperty().SetColor(skinColor)
+    skinActor.GetProperty().SetColor(SKIN_COLOR)
     skinActor.GetProperty().SetOpacity(0.5)
     skinActor.SetBackfaceProperty(skinActor.MakeProperty())
-    skinActor.GetBackfaceProperty().SetColor(skinColor)
+    skinActor.GetBackfaceProperty().SetColor(SKIN_COLOR)
 
-    return create_renderer(viewport, [0.82,1.00,0.82], boneActor, skinActor)
+    return create_renderer(viewport, UPPER_RIGHT_BG_COLOR, boneActor, skinActor)
 
 def lower_left(viewport):
-    # Create the bone actor
-    boneActor = vtk.vtkActor()
-    boneActor.SetMapper(boneMapper)
-    boneActor.GetProperty().SetColor(boneColor)
-
     # Create the skin actor
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
-    skinActor.GetProperty().SetColor(skinColor)
+    skinActor.GetProperty().SetColor(SKIN_COLOR)
 
     # Create a sample function from the implicit function
     sampleFunction = vtk.vtkSampleFunction()
@@ -151,55 +111,131 @@ def lower_left(viewport):
     # Create the sphere actor
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
-    sphereActor.GetProperty().SetColor(colors.GetColor3d('PaleGoldenrod'))
+    sphereActor.GetProperty().SetColor(COLORS.GetColor3d('PaleGoldenrod'))
     sphereActor.GetProperty().SetOpacity(0.3)
 
-    return create_renderer(viewport, [0.82,0.82,1.00], boneActor, skinActor, sphereActor)
+    return create_renderer(viewport, LOWER_LEFT_BG_COLOR, boneActor, skinActor, sphereActor)
 
 def lower_right(viewport):
-    distanceMapper = vtk.vtkPolyDataMapper()
+    # Create rainbow lookup table
+    lut = vtk.vtkLookupTable()
+    lut.SetNumberOfColors(256)
+    lut.SetHueRange(0.0, 0.667)
+    lut.Build()
 
-    if os.path.isfile(bone_distances_path):
-        polydata = vtk.vtkPolyData()
-
-        reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(bone_distances_path)
-        reader.SetOutput(polydata)
-        reader.ReadAllScalarsOn()
-
-        distanceMapper.SetInputConnection(reader.GetOutputPort())
-    else:
-        distanceFilter = vtk.vtkDistancePolyDataFilter()
-        distanceFilter.SignedDistanceOff()
-        distanceFilter.SetInputConnection(0, boneContourFilter.GetOutputPort())
-        distanceFilter.SetInputConnection(1, skinContourFilter.GetOutputPort())
-        distanceFilter.Update()
-
-        writer = vtk.vtkPolyDataWriter()
-        writer.SetFileName(bone_distances_path)
-        writer.SetFileTypeToBinary()
-        writer.SetInputData(distanceFilter.GetOutput())
-        writer.Write()
-
-    ctf = vtk.vtkColorTransferFunction()
-    ctf.AddRGBPoint(0, 0.514, 0.49, 1)
-    ctf.AddRGBPoint(1, 0.157, 0.325, 0.141)
-    ctf.AddRGBPoint(20, 0.392, 0.725, 0.357)
-    ctf.AddRGBPoint(40, 0.898, 0.784, 0.537)
-    ctf.AddRGBPoint(60, 1, 1, 1)
-
-    distanceMapper.SetLookupTable(ctf)
+    distanceMapper = vtk.vtkDataSetMapper()
+    distanceMapper.SetInputConnection(boneOutputPort)
+    distanceMapper.SetLookupTable(lut)
+    # Comment connaître la range ? Possible d'update mais performance ?
+    # + warning thread-safe je sais pas quoi
+    distanceMapper.SetScalarRange(0,50)
 
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(distanceMapper)
-    return create_renderer(viewport, [0.82,0.82,0.82], boneActor)
-  
-ren11 = upper_left(viewport11)
-ren12 = upper_right(viewport12)
-ren22 = lower_right(viewport22)
-ren21 = lower_left(viewport21)
+    return create_renderer(viewport, LOWER_RIGHT_BG_COLOR, boneActor)
 
-# Pour le dernier, utiliser vtkImplicitPolyDataDistance (https://youtu.be/gBdo2OrVAyk?t=362)
+
+
+# Reading and creating common assets
+# Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
+reader = vtk.vtkSLCReader()
+reader.SetFileName("vw_knee.slc")
+
+skinContourFilter = vtk.vtkContourFilter()
+skinContourFilter.SetInputConnection(reader.GetOutputPort())
+skinContourFilter.SetValue(0, SKIN_ISO_VALUE)
+
+boneOutputPort = 0
+if os.path.isfile(BONE_DISTANCES_PATH):
+    polydata = vtk.vtkUnstructuredGrid()
+
+    boneReader = vtk.vtkUnstructuredGridReader()
+    boneReader.SetFileName(BONE_DISTANCES_PATH)
+    boneReader.SetOutput(polydata)
+    boneReader.ReadAllScalarsOn()
+
+    boneOutputPort = boneReader.GetOutputPort()    
+else:
+    # Getting bone mesh
+    boneContourFilter = vtk.vtkContourFilter()
+    boneContourFilter.SetInputConnection(reader.GetOutputPort())
+    boneContourFilter.SetValue(0, BONE_ISO_VALUE)
+
+    # Compute distance to skin
+    distanceFilter = vtk.vtkDistancePolyDataFilter()
+    distanceFilter.SignedDistanceOff()
+    distanceFilter.SetInputConnection(0, boneContourFilter.GetOutputPort())
+    distanceFilter.SetInputConnection(1, skinContourFilter.GetOutputPort())
+
+    # Remove ugly pipe
+    range = vtk.vtkIntArray()
+    range.InsertNextTuple1(2)
+    range.InsertNextTuple1(60)
+
+    filterCells = vtk.vtkSelectionNode()
+    filterCells.SetContentType(7)
+    filterCells.SetFieldType(0)
+    filterCells.SetSelectionList(range)
+
+    sel = vtk.vtkSelection()
+    sel.SetNode("cells", filterCells)
+
+    cleaner = vtk.vtkExtractSelection()
+    cleaner.SetInputConnection(0, distanceFilter.GetOutputPort())
+    cleaner.SetInputData(1, sel)
+    cleaner.Update()
+
+    # Write to file for later launch
+    writer = vtk.vtkUnstructuredGridWriter()
+    writer.SetFileName(BONE_DISTANCES_PATH)
+    writer.SetFileTypeToBinary()
+    writer.SetInputData(cleaner.GetOutput())
+    writer.Write()
+
+    boneOutputPort = cleaner.GetOutputPort()
+
+# Create bounding box actor for the scan data
+outliner = vtk.vtkOutlineFilter()
+outliner.SetInputConnection(reader.GetOutputPort())
+
+boxMapper = vtk.vtkPolyDataMapper()
+boxMapper.SetInputConnection(outliner.GetOutputPort())
+boxMapper.SetScalarVisibility(0)
+
+boxActor = vtk.vtkActor()
+boxActor.SetMapper(boxMapper)
+boxActor.GetProperty().SetColor(COLORS.GetColor3d('Black'))
+
+# Create a bone actor with the default mapper
+boneDefaultMapper = vtk.vtkDataSetMapper()
+boneDefaultMapper.SetInputConnection(boneOutputPort)
+boneDefaultMapper.SetScalarVisibility(0)
+
+boneActor = vtk.vtkActor()
+boneActor.SetMapper(boneDefaultMapper)
+boneActor.GetProperty().SetColor(BONE_COLOR)
+
+# Create a skin mapper clipping the knee area with a sphere
+skinClipFunction = vtk.vtkSphere()
+skinClipFunction.SetRadius(45)
+skinClipFunction.SetCenter(70,30,110)
+
+skinClip = vtk.vtkClipPolyData()
+skinClip.SetClipFunction(skinClipFunction)
+skinClip.SetInputConnection(skinContourFilter.GetOutputPort())
+
+skinClipMapper = vtk.vtkPolyDataMapper()
+skinClipMapper.SetInputConnection(skinClip.GetOutputPort())
+skinClipMapper.SetScalarVisibility(0)
+
+
+
+# Display !
+
+ren11 = upper_left(VIEWPORT11)
+ren12 = upper_right(VIEWPORT12)
+ren22 = lower_right(VIEWPORT22)
+ren21 = lower_left(VIEWPORT21)
 
 renderWindow = vtk.vtkRenderWindow()
 renderWindow.AddRenderer(ren11)
