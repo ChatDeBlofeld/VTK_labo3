@@ -2,13 +2,19 @@
 
 import vtk
 import os.path
+import itertools
 
 # Constants
 
 BONE_ISO_VALUE = 72
 SKIN_ISO_VALUE = 50
+BONE_MIN_DIST_TO_SKIN = 2.5
 
+DATA_PATH = "vw_knee.slc"
 BONE_DISTANCES_PATH = "bone_distances.vtk"
+SCALAR_RANGE_PATH = "scalar_range"
+
+WINDOW_SIZE = (800, 800)
 
 # (xmin, ymin, xmax, ymax)
 VIEWPORT11 = [0.0, 0.5, 0.5, 1.0]
@@ -25,7 +31,16 @@ COLORS = vtk.vtkNamedColors()
 
 SKIN_COLOR = [0.81,0.63,0.62]
 BONE_COLOR = COLORS.GetColor3d('Ivory')
+BOUNDING_BOX_COLOR = COLORS.GetColor3d('Black')
 
+CLIP_SPHERE_RADIUS = 45
+CLIP_SPHERE_CENTER = [70,30,110]
+
+UP_L_NB_LINES = 25
+UP_L_TUBE_RADIUS = 1
+UP_R_SKIN_OPACITY = 0.5
+LO_L_SPHERE_COLOR = COLORS.GetColor3d('PaleGoldenrod')
+LO_L_SPHERE_OPACITY = 0.3
 
 
 # Set of functions to create the specific renderers
@@ -43,7 +58,7 @@ def upper_left(viewport):
     # Create the mapper
     skinMapper = vtk.vtkPolyDataMapper()
     skinMapper.SetInputConnection(skinContourFilter.GetOutputPort())
-    skinMapper.SetScalarVisibility(0)
+    skinMapper.ScalarVisibilityOff()
 
     # Create the plane to cut the skin
     plane = vtk.vtkPlane()
@@ -54,7 +69,7 @@ def upper_left(viewport):
     cutter = vtk.vtkCutter()
     cutter.SetInputData(skinMapper.GetInput())
     cutter.SetCutFunction(plane)
-    cutter.GenerateValues(25, 0, 200)
+    cutter.GenerateValues(UP_L_NB_LINES, 0, 200)
 
     # Strip the output of the cutter
     stripper = vtk.vtkStripper()
@@ -62,7 +77,7 @@ def upper_left(viewport):
 
     # Pass the output of the stripper through a tube filter
     tubeFilter = vtk.vtkTubeFilter()
-    tubeFilter.SetRadius(1)
+    tubeFilter.SetRadius(UP_L_TUBE_RADIUS)
     tubeFilter.SetInputConnection(stripper.GetOutputPort())
 
     # Create the lines mapper
@@ -82,7 +97,7 @@ def upper_right(viewport):
     skinActor = vtk.vtkActor()
     skinActor.SetMapper(skinClipMapper)
     skinActor.GetProperty().SetColor(SKIN_COLOR)
-    skinActor.GetProperty().SetOpacity(0.5)
+    skinActor.GetProperty().SetOpacity(UP_R_SKIN_OPACITY)
     skinActor.SetBackfaceProperty(skinActor.MakeProperty())
     skinActor.GetBackfaceProperty().SetColor(SKIN_COLOR)
 
@@ -97,7 +112,9 @@ def lower_left(viewport):
     # Create a sample function from the implicit function
     sampleFunction = vtk.vtkSampleFunction()
     sampleFunction.SetImplicitFunction(skinClipFunction)
-    sampleFunction.SetModelBounds(0.0, 200, -30, 200, 0.0, 200)
+    bounds = map(lambda x: (x - CLIP_SPHERE_RADIUS * 1.1, x + CLIP_SPHERE_RADIUS * 1.1), CLIP_SPHERE_CENTER)
+    bounds = list(itertools.chain(*bounds))
+    sampleFunction.SetModelBounds(bounds)
 
     # Pass the sample function through a contourFilter to create a polydata
     contourFilter = vtk.vtkContourFilter()
@@ -111,17 +128,15 @@ def lower_left(viewport):
     # Create the sphere actor
     sphereActor = vtk.vtkActor()
     sphereActor.SetMapper(sphereMapper)
-    sphereActor.GetProperty().SetColor(COLORS.GetColor3d('PaleGoldenrod'))
-    sphereActor.GetProperty().SetOpacity(0.3)
+    sphereActor.GetProperty().SetColor(LO_L_SPHERE_COLOR)
+    sphereActor.GetProperty().SetOpacity(LO_L_SPHERE_OPACITY)
 
     return create_renderer(viewport, LOWER_LEFT_BG_COLOR, boneActor, skinActor, sphereActor)
 
 def lower_right(viewport):
     distanceMapper = vtk.vtkDataSetMapper()
     distanceMapper.SetInputConnection(boneOutputPort)
-    # Comment connaître la range ? Possible d'update mais performance ?
-    # + warning thread-safe je sais pas quoi
-    distanceMapper.SetScalarRange(0,50)
+    distanceMapper.SetScalarRange(scalarRange)
 
     boneActor = vtk.vtkActor()
     boneActor.SetMapper(distanceMapper)
@@ -132,22 +147,52 @@ def lower_right(viewport):
 # Reading and creating common assets
 # Reference: https://kitware.github.io/vtk-examples/site/Python/IO/ReadSLC/
 reader = vtk.vtkSLCReader()
-reader.SetFileName("vw_knee.slc")
+reader.SetFileName(DATA_PATH)
 
 skinContourFilter = vtk.vtkContourFilter()
 skinContourFilter.SetInputConnection(reader.GetOutputPort())
 skinContourFilter.SetValue(0, SKIN_ISO_VALUE)
 
+# Output port of the vtk pipeline for the bone mesh
+# Comes either from a reader if a pre-computed file
+# exists or from the pipeline to compute it on the fly
 boneOutputPort = 0
-if os.path.isfile(BONE_DISTANCES_PATH):
-    grid = vtk.vtkUnstructuredGrid()
 
-    boneReader = vtk.vtkUnstructuredGridReader()
+# Since we don't want to break the pipeline with unnecessary
+# updates, we store the range for the lower left renderer LUT
+# in file. So it comes either from a file or is computed on
+# the fly as 'boneOutputPort'
+scalarRange = (0,1)
+
+# Pre-computed files exist for bones, we just need to read them.
+if os.path.isfile(BONE_DISTANCES_PATH) and os.path.isfile(SCALAR_RANGE_PATH):
+    # Reading mesh
+    mesh = vtk.vtkPolyData()
+
+    boneReader = vtk.vtkPolyDataReader()
     boneReader.SetFileName(BONE_DISTANCES_PATH)
-    boneReader.SetOutput(grid)
+    boneReader.SetOutput(mesh)
     boneReader.ReadAllScalarsOn()
 
-    boneOutputPort = boneReader.GetOutputPort()    
+    boneOutputPort = boneReader.GetOutputPort()
+
+    # Reading scalar range for the lower right viewport LUT
+    with open(SCALAR_RANGE_PATH) as file:
+        # WARNING: USING EVAL AS SUCH IS A HUGE SECURITY BREACH
+        #
+        # But we don't care. This is an academic work not focusing on security
+        # nor intended to be used in production and eval clearly is
+        # the easiest way to read a tuple from a file we've generated.
+        # 
+        # Just don't accept our 'scalar_range' file (if provided)
+        # without checking its content, it may contain some malicious code
+        # to set a '6' to every VTK students.
+        #
+        # If you want to have some fun and see how bad this is, replace 
+        # the generated 'scalar_range' file content with this line:
+        # exec("from tkinter import Tk, messagebox; root = Tk(); root.withdraw(); messagebox.showinfo('This is a cryptolocker', 'You ve been hacked. Sad life isn t it?')")
+        scalarRange = eval(file.readline().strip())
+# No pre-computed files, we need to compute the mesh on the fly
 else:
     # Getting bone mesh
     boneContourFilter = vtk.vtkContourFilter()
@@ -161,31 +206,43 @@ else:
     distanceFilter.SetInputConnection(1, skinContourFilter.GetOutputPort())
 
     # Remove ugly pipe
-    range = vtk.vtkIntArray()
-    range.InsertNextTuple1(2.5)
-    range.InsertNextTuple1(60)
+    range = vtk.vtkDoubleArray()
+    range.SetNumberOfComponents(2)
+    range.SetNumberOfTuples(1)
+    range.FillComponent(0, BONE_MIN_DIST_TO_SKIN)
+    range.FillComponent(1, float("inf"))
 
     filterCells = vtk.vtkSelectionNode()
-    filterCells.SetContentType(7)
-    filterCells.SetFieldType(0)
+    filterCells.SetContentType(7) # 7 is enum id for Threshold selection
+    filterCells.SetFieldType(0)  # 0 is enum id for Cell type
     filterCells.SetSelectionList(range)
 
-    sel = vtk.vtkSelection()
-    sel.SetNode("cells", filterCells)
+    selector = vtk.vtkSelection()
+    selector.SetNode("cells", filterCells)
 
     cleaner = vtk.vtkExtractSelection()
     cleaner.SetInputConnection(0, distanceFilter.GetOutputPort())
-    cleaner.SetInputData(1, sel)
-    cleaner.Update()
+    cleaner.SetInputData(1, selector)
 
-    # Write to file for later launch
-    writer = vtk.vtkUnstructuredGridWriter()
+    # Getting polydata back
+    converter = vtk.vtkGeometryFilter()
+    converter.SetInputConnection(cleaner.GetOutputPort())
+    converter.Update()
+
+    # Write to file for later launches
+    writer = vtk.vtkPolyDataWriter()
     writer.SetFileName(BONE_DISTANCES_PATH)
     writer.SetFileTypeToBinary()
-    writer.SetInputData(cleaner.GetOutput())
+    writer.SetInputData(converter.GetOutput())
     writer.Write()
 
-    boneOutputPort = cleaner.GetOutputPort()
+    # Write the scalar range of the distances
+    # for a later usage in the LUT parameters
+    with open(SCALAR_RANGE_PATH, "w") as file:
+        scalarRange = converter.GetOutput().GetScalarRange()
+        file.write(str(scalarRange))
+
+    boneOutputPort = converter.GetOutputPort()
 
 # Create bounding box actor for the scan data
 outliner = vtk.vtkOutlineFilter()
@@ -193,16 +250,16 @@ outliner.SetInputConnection(reader.GetOutputPort())
 
 boxMapper = vtk.vtkPolyDataMapper()
 boxMapper.SetInputConnection(outliner.GetOutputPort())
-boxMapper.SetScalarVisibility(0)
+boxMapper.ScalarVisibilityOff()
 
 boxActor = vtk.vtkActor()
 boxActor.SetMapper(boxMapper)
-boxActor.GetProperty().SetColor(COLORS.GetColor3d('Black'))
+boxActor.GetProperty().SetColor(BOUNDING_BOX_COLOR)
 
 # Create a bone actor with the default mapper
-boneDefaultMapper = vtk.vtkDataSetMapper()
+boneDefaultMapper = vtk.vtkPolyDataMapper()
 boneDefaultMapper.SetInputConnection(boneOutputPort)
-boneDefaultMapper.SetScalarVisibility(0)
+boneDefaultMapper.ScalarVisibilityOff()
 
 boneActor = vtk.vtkActor()
 boneActor.SetMapper(boneDefaultMapper)
@@ -210,8 +267,8 @@ boneActor.GetProperty().SetColor(BONE_COLOR)
 
 # Create a skin mapper clipping the knee area with a sphere
 skinClipFunction = vtk.vtkSphere()
-skinClipFunction.SetRadius(45)
-skinClipFunction.SetCenter(70,30,110)
+skinClipFunction.SetRadius(CLIP_SPHERE_RADIUS)
+skinClipFunction.SetCenter(CLIP_SPHERE_CENTER)
 
 skinClip = vtk.vtkClipPolyData()
 skinClip.SetClipFunction(skinClipFunction)
@@ -219,7 +276,7 @@ skinClip.SetInputConnection(skinContourFilter.GetOutputPort())
 
 skinClipMapper = vtk.vtkPolyDataMapper()
 skinClipMapper.SetInputConnection(skinClip.GetOutputPort())
-skinClipMapper.SetScalarVisibility(0)
+skinClipMapper.ScalarVisibilityOff()
 
 
 
@@ -235,7 +292,7 @@ renderWindow.AddRenderer(ren11)
 renderWindow.AddRenderer(ren12)
 renderWindow.AddRenderer(ren21)
 renderWindow.AddRenderer(ren22)
-renderWindow.SetSize(800, 800)
+renderWindow.SetSize(WINDOW_SIZE)
 
 # Create a renderwindowinteractor.
 renderWindowInteractor = vtk.vtkRenderWindowInteractor()
@@ -243,7 +300,6 @@ renderWindowInteractor.SetRenderWindow(renderWindow)
 
 # Pick a good view
 cam1 = ren11.GetActiveCamera()
-cam1.SetFocalPoint(0.0, 0.0, 0.0)
 cam1.SetPosition(0.0, -1.0, 0.0)
 cam1.SetViewUp(0.0, 0.0, -1.0)
 ren11.ResetCamera()
